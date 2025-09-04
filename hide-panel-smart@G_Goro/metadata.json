@@ -1,7 +1,7 @@
 {
   "uuid": "hide-panel-smart@G_Goro",
   "name": "Hide Panel Smart",
-  "description": "Nasconde la topbar in base alle finestre e al mouse, con hot area e menu rilevati.",
+  "description": "Hide Panel with smart rules.",
   "shell-version": ["42"],
   "url": "https://github.com/gorobey/hide-panel-smart",
   "version": 1
