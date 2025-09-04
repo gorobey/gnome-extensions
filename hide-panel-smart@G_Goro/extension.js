@@ -1,11 +1,11 @@
 /* 
-    Hide Panel with smart rules (2025 final)
-    - Barra nascosta se finestra massimizzata o che invade la topbar
-    - Barra sempre visibile in Overview
-    - Barra visibile se il mouse resta in alto per un tempo minimo
-    - Barra resta visibile anche con il mouse sopra la barra o i menu
-    - Barra scompare solo dopo 750ms quando il mouse esce dall’area sensibile e dalla barra
-    - Barra resta visibile se un menu è aperto
+    Hide Panel with smart rules
+    - Bar hidden if a window is maximized or overlaps the top bar
+    - Bar always visible in Overview
+    - Bar visible if the mouse stays at the top for a minimum time
+    - Bar remains visible when the mouse is over the bar or menus
+    - Bar disappears after 300ms when the mouse leaves the sensitive area and the bar
+    - Bar remains visible if a menu is open
 */
 
 const Main = imports.ui.main;
@@ -35,20 +35,10 @@ class Extension {
         this._leaveDelay = 300;   // ms prima di nascondere
     }
 
-    _show_panel() {
-    Panel.show();
-        Panel.set_height(this.panel_height);
-    }
-
-    _hide_panel() {
-    Panel.hide();
-        Panel.set_height(0);
-    }
-
     _any_window_blocks_panel() {
         const windows = global.get_window_actors()
             .map(actor => actor.meta_window)
-            .filter(w => w && w.get_window_type() === Meta.WindowType.NORMAL);
+            .filter(w => w && w.get_window_type() === Meta.WindowType.NORMAL && w.showing_on_its_workspace());
 
         for (let w of windows) {
             // finestra massimizzata?
@@ -65,39 +55,42 @@ class Extension {
     }
 
     _update_panel_visibility() {
-        // Caso 1: Overview visibile → barra sempre visibile
+        // aggiorna lo stato reale del mouse
+        this._mouseInside = this._inHotArea || this._inPanel;
+
+        // Caso 1: Overview → barra sempre visibile
         if (Overview.visible) {
-            this._show_panel();
+            Panel.show();
             return;
         }
 
-        // Caso 2: Mouse nell’hot area o sopra barra → visibile
-        if (this._mouseInside) {
-            this._show_panel();
-            return;
-        }
-
-        // Caso 3: Menu aperto → barra visibile
+        // Caso 2: Menu aperto → barra visibile
         for (let name in Panel.statusArea) {
-            let item = Panel.statusArea[name];
+            const item = Panel.statusArea[name];
             if (item.menu && item.menu.isOpen) {
-                this._show_panel();
+                Panel.show();
                 return;
             }
         }
 
-        // Caso 4: finestre che bloccano la barra → nascosta
-        if (this._any_window_blocks_panel()) {
-            this._hide_panel();
+        // Caso 3: Mouse dentro hot area o barra → barra visibile
+        if (this._mouseInside) {
+            Panel.show();
             return;
         }
 
-        // Caso 5: default → visibile
-        this._show_panel();
+        // Caso 4: finestre che bloccano → barra nascosta
+        if (this._any_window_blocks_panel()) {
+            Panel.hide();
+            return;
+        }
+
+        // Caso 5: default → barra visibile
+        Panel.show();
     }
 
     _connect(obj, signal, handler) {
-        let id = obj.connect(signal, handler);
+        const id = obj.connect(signal, handler);
         this._signals.push([obj, id]);
     }
 
@@ -114,6 +107,7 @@ class Extension {
 
         Main.layoutManager.addTopChrome(this._hotArea);
 
+        // Hot area
         this._connect(this._hotArea, 'enter-event', () => {
             this._inHotArea = true;
             this._startEnterTimer();
@@ -128,7 +122,6 @@ class Extension {
         this._connect(Panel, 'enter-event', () => {
             this._inPanel = true;
             this._cancelLeaveTimer();
-            this._mouseInside = true;
             this._update_panel_visibility();
         });
 
@@ -139,7 +132,7 @@ class Extension {
 
         // I menu della barra devono considerarsi zona attiva
         for (let name in Panel.statusArea) {
-            let item = Panel.statusArea[name];
+            const item = Panel.statusArea[name];
             if (!item.actor) continue;
 
             this._connect(item.actor, 'enter-event', () => {
@@ -191,9 +184,7 @@ class Extension {
                 this._leaveDelay,
                 () => {
                     this._mouseInside = this._inHotArea || this._inPanel;
-                    if (!this._mouseInside) {
-                        this._update_panel_visibility();
-                    }
+                    this._update_panel_visibility();
                     this._leaveTimeoutId = null;
                     return GLib.SOURCE_REMOVE;
                 }
@@ -211,16 +202,9 @@ class Extension {
     enable() {
         this._createHotArea();
 
-        // Overview
-        this._connect(Overview, 'showing', () => {
-            this._show_panel();
-        });
+        this._connect(Overview, 'showing', () => this._show_panel());
+        this._connect(Overview, 'hiding', () => this._update_panel_visibility());
 
-        this._connect(Overview, 'hiding', () => {
-            this._update_panel_visibility();
-        });
-
-        // Cambio focus
         this._connect(global.display, 'notify::focus-window', () => this._update_panel_visibility());
 
         // Creazione nuove finestre
@@ -262,4 +246,3 @@ class Extension {
 function init() {
     return new Extension();
 }
-
