@@ -1,4 +1,4 @@
-/* 
+/*
     Hide Panel with smart rules
     - Bar hidden if a window is maximized or overlaps the top bar
     - Bar always visible in Overview
@@ -21,46 +21,54 @@ class Extension {
         this._signals = [];
         this._hotArea = null;
 
-        // Flags mouse
-        this._inHotArea = false;
-        this._inPanel = false;
-        this._mouseInside = false;
+        this._enterDelay = 300;
+        this._leaveDelay = 750;
 
-        // timers
+        this._mouseInside = false;
+        this._inPanel = false;
+
         this._enterTimeoutId = null;
         this._leaveTimeoutId = null;
+        this._updateLoop = null;
+    }
 
-        // config
-        this._enterDelay = 300;   // ms permanenza prima di mostrare
-        this._leaveDelay = 300;   // ms prima di nascondere
+    _show_panel() {
+        Panel.show();
+    }
+
+    _hide_panel() {
+        Panel.hide();
     }
 
     _any_window_blocks_panel() {
         const windows = global.get_window_actors()
-            .map(actor => actor.meta_window)
+            .map(a => a.meta_window)
             .filter(w => w && w.get_window_type() === Meta.WindowType.NORMAL && w.showing_on_its_workspace());
 
         for (let w of windows) {
-            // finestra massimizzata?
-            if (w.get_maximized() === Meta.MaximizeFlags.BOTH) {
+            if (w.get_maximized() === Meta.MaximizeFlags.BOTH)
                 return true;
-            }
-            // finestra che invade lo spazio della topbar?
-            let rect = w.get_frame_rect();
-            if (rect.y <= this.panel_height) {
+            const rect = w.get_frame_rect();
+            if (rect.y <= this.panel_height)
                 return true;
-            }
         }
         return false;
     }
 
     _update_panel_visibility() {
         // aggiorna lo stato reale del mouse
-        this._mouseInside = this._inHotArea || this._inPanel;
+        let [x, y, mods] = global.get_pointer();
+        this._mouseInside = (y <= 5 && x > 0) || this._inPanel;
+
+        // Caso 0: lock screen → barra sempre nascosta
+        if (Main.screenShield.locked) {
+            this._hide_panel();
+            return;
+        }
 
         // Caso 1: Overview → barra sempre visibile
         if (Overview.visible) {
-            Panel.show();
+            this._show_panel();
             return;
         }
 
@@ -68,25 +76,25 @@ class Extension {
         for (let name in Panel.statusArea) {
             const item = Panel.statusArea[name];
             if (item.menu && item.menu.isOpen) {
-                Panel.show();
+                this._show_panel();
                 return;
             }
         }
 
         // Caso 3: Mouse dentro hot area o barra → barra visibile
         if (this._mouseInside) {
-            Panel.show();
+            this._show_panel();
             return;
         }
 
         // Caso 4: finestre che bloccano → barra nascosta
         if (this._any_window_blocks_panel()) {
-            Panel.hide();
+            this._hide_panel();
             return;
         }
 
-        // Caso 5: default → barra visibile
-        Panel.show();
+        // Caso 5: default
+        this._show_panel();
     }
 
     _connect(obj, signal, handler) {
@@ -101,36 +109,26 @@ class Extension {
             x: 0,
             y: 0,
             width: global.stage.width,
-            height: 5, // zona sensibile
-            opacity: 0, // invisibile
+            height: 5,
+            opacity: 0
         });
 
         Main.layoutManager.addTopChrome(this._hotArea);
 
-        // Hot area
-        this._connect(this._hotArea, 'enter-event', () => {
-            this._inHotArea = true;
-            this._startEnterTimer();
-        });
+        this._connect(this._hotArea, 'enter-event', () => this._startEnterTimer());
+        this._connect(this._hotArea, 'leave-event', () => this._startLeaveTimer());
 
-        this._connect(this._hotArea, 'leave-event', () => {
-            this._inHotArea = false;
-            this._startLeaveTimer();
-        });
-
-        // La barra stessa è zona attiva
+        // Barra
         this._connect(Panel, 'enter-event', () => {
             this._inPanel = true;
             this._cancelLeaveTimer();
-            this._update_panel_visibility();
         });
-
         this._connect(Panel, 'leave-event', () => {
             this._inPanel = false;
             this._startLeaveTimer();
         });
 
-        // I menu della barra devono considerarsi zona attiva
+        // Menu topbar
         for (let name in Panel.statusArea) {
             const item = Panel.statusArea[name];
             if (!item.actor) continue;
@@ -138,14 +136,13 @@ class Extension {
             this._connect(item.actor, 'enter-event', () => {
                 this._inPanel = true;
                 this._cancelLeaveTimer();
-                this._mouseInside = true;
-                this._update_panel_visibility();
             });
-
             this._connect(item.actor, 'leave-event', () => {
                 this._inPanel = false;
                 this._startLeaveTimer();
             });
+            this._connect(Main.screenShield, 'locked', () => this._update_panel_visibility());
+            this._connect(Main.screenShield, 'unlocked', () => this._update_panel_visibility());
         }
 
         // aggiorna larghezza quando cambia risoluzione
@@ -159,36 +156,29 @@ class Extension {
         this._cancelLeaveTimer();
 
         if (!this._enterTimeoutId) {
-            this._enterTimeoutId = GLib.timeout_add(
-                GLib.PRIORITY_DEFAULT,
-                this._enterDelay,
-                () => {
-                    this._mouseInside = this._inHotArea || this._inPanel;
-                    this._update_panel_visibility();
-                    this._enterTimeoutId = null;
-                    return GLib.SOURCE_REMOVE;
-                }
-            );
+            this._enterTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, this._enterDelay, () => {
+                this._update_panel_visibility();
+                this._enterTimeoutId = null;
+                return GLib.SOURCE_REMOVE;
+            });
         }
     }
 
     _startLeaveTimer() {
+        this._cancelEnterTimer();
+        if (!this._leaveTimeoutId) {
+            this._leaveTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, this._leaveDelay, () => {
+                this._update_panel_visibility();
+                this._leaveTimeoutId = null;
+                return GLib.SOURCE_REMOVE;
+            });
+        }
+    }
+
+    _cancelEnterTimer() {
         if (this._enterTimeoutId) {
             GLib.source_remove(this._enterTimeoutId);
             this._enterTimeoutId = null;
-        }
-
-        if (!this._leaveTimeoutId) {
-            this._leaveTimeoutId = GLib.timeout_add(
-                GLib.PRIORITY_DEFAULT,
-                this._leaveDelay,
-                () => {
-                    this._mouseInside = this._inHotArea || this._inPanel;
-                    this._update_panel_visibility();
-                    this._leaveTimeoutId = null;
-                    return GLib.SOURCE_REMOVE;
-                }
-            );
         }
     }
 
@@ -202,9 +192,17 @@ class Extension {
     enable() {
         this._createHotArea();
 
+        // Polling continuo per gestione lock screen, multi-finestra e workspace changes
+        this._updateLoop = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
+            this._update_panel_visibility();
+            return GLib.SOURCE_CONTINUE;
+        });
+
+        // Overview
         this._connect(Overview, 'showing', () => this._show_panel());
         this._connect(Overview, 'hiding', () => this._update_panel_visibility());
 
+        // Cambio focus finestre
         this._connect(global.display, 'notify::focus-window', () => this._update_panel_visibility());
 
         // Creazione nuove finestre
@@ -213,6 +211,7 @@ class Extension {
             this._connect(window, 'notify::maximized-vertically', () => this._update_panel_visibility());
             this._connect(window, 'size-changed', () => this._update_panel_visibility());
             this._connect(window, 'position-changed', () => this._update_panel_visibility());
+            this._connect(window, 'unmanaged', () => this._update_panel_visibility());
         });
 
         this._update_panel_visibility();
@@ -230,13 +229,12 @@ class Extension {
             this._hotArea = null;
         }
 
-        if (this._enterTimeoutId) {
-            GLib.source_remove(this._enterTimeoutId);
-            this._enterTimeoutId = null;
-        }
-        if (this._leaveTimeoutId) {
-            GLib.source_remove(this._leaveTimeoutId);
-            this._leaveTimeoutId = null;
+        this._cancelEnterTimer();
+        this._cancelLeaveTimer();
+
+        if (this._updateLoop) {
+            GLib.source_remove(this._updateLoop);
+            this._updateLoop = null;
         }
 
         this._show_panel();
