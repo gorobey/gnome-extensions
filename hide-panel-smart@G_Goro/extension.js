@@ -90,14 +90,14 @@ class Extension {
 
         // Caso 0: lock screen → barra sempre nascosta
         if (Main.screenShield.locked) {
-            log('Nascondo: lock screen');
+            console.log('Nascondo: lock screen');
             this._hide_panel();
             return;
         }
 
         // Caso 1: Overview → barra sempre visibile
         if (Overview.visible) {
-            log('Mostro: overview');
+            console.log('Mostro: overview');
             this._show_panel();
             return;
         }
@@ -106,7 +106,7 @@ class Extension {
         for (let name in Panel.statusArea) {
             const item = Panel.statusArea[name];
             if (item.menu && item.menu.isOpen) {
-                log('Mostro: Menu aperto');
+                console.log('Mostro: Menu aperto');
                 this._show_panel();
                 return;
             }
@@ -114,20 +114,20 @@ class Extension {
 
         // Caso 3: Mouse dentro hot area o barra → barra visibile
         if (this._mouseInside && (global.display.get_grab_op() !== Meta.GrabOp.MOVING)) {
-            log('Mostro: mouse dentro hot area o barra + no drag');
+            console.log('Mostro: mouse dentro hot area o barra + no drag');
             this._show_panel();
             return;
         }
 
         // Caso 4: finestre che bloccano → barra nascosta
         if (this._any_window_blocks_panel()) {
-            log('Nascondo: finestra massimizzata o vicino alla barra');
+            console.log('Nascondo: finestra massimizzata o vicino alla barra');
             this._hide_panel();
             return;
         }
 
         // Caso 5: default
-        log('Mostro: default');
+        console.log('Mostro: default');
         this._show_panel();
     }
 
