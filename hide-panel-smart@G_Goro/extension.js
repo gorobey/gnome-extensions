@@ -15,6 +15,7 @@ const Meta = imports.gi.Meta;
 const Overview = Main.overview;
 const St = imports.gi.St;
 const GLib = imports.gi.GLib;
+const Clutter = imports.gi.Clutter;
 
 class Extension {
     constructor() {
@@ -22,8 +23,8 @@ class Extension {
         this._signals = [];
         this._hotArea = null;
 
-        this._enterDelay = 300;
-        this._leaveDelay = 750;
+        this._enterDelay = 75;
+        this._leaveDelay = 500;
 
         this._mouseInside = false;
         this._inPanel = false;
@@ -34,15 +35,31 @@ class Extension {
     }
 
     _show_panel() {
-        Panel.show();
+        Panel.ease({
+            opacity: 255,
+            height: this.panel_height,
+            duration: 75,
+            mode: Clutter.AnimationMode.EASE_OUT_EXPO,
+            onComplete: () => {
+                Panel.show();
+            }
+        });
     }
 
     _hide_panel() {
-        Panel.hide();
+        Panel.ease({
+            opacity: 0,
+            height: 1,
+            duration: 75,
+            mode: Clutter.AnimationMode.EASE_OUT_EXPO,
+            onComplete: () => {
+                Panel.hide();
+            }
+        });
     }
 
     _any_window_blocks_panel() {
-        const PROXIMITY_THRESHOLD = this.panel_height + 20;
+        const PROXIMITY_THRESHOLD = this.panel_height + 50;
         // Ottieni l'indice del monitor della barra (qui si assume monitor principale)
         const panelMonitor = Main.layoutManager.primaryIndex;
 
