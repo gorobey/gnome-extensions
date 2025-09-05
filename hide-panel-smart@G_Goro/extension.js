@@ -1,6 +1,7 @@
 /*
     Hide Panel with smart rules
-    - Bar hidden if a window is maximized or overlaps the top bar
+    - Bar hidden if a window is maximized
+    - Bar go hidden when a windows is dragged close to the top bar
     - Bar always visible in Overview
     - Bar visible if the mouse stays at the top for a minimum time
     - Bar remains visible when the mouse is over the bar or menus
@@ -41,15 +42,24 @@ class Extension {
     }
 
     _any_window_blocks_panel() {
+        const PROXIMITY_THRESHOLD = this.panel_height + 20;
+        // Ottieni l'indice del monitor della barra (qui si assume monitor principale)
+        const panelMonitor = Main.layoutManager.primaryIndex;
+
         const windows = global.get_window_actors()
             .map(a => a.meta_window)
-            .filter(w => w && w.get_window_type() === Meta.WindowType.NORMAL && w.showing_on_its_workspace());
+            .filter(w =>
+                w &&
+                w.get_window_type() === Meta.WindowType.NORMAL &&
+                w.showing_on_its_workspace() &&
+                w.get_monitor() === panelMonitor // Solo finestre sullo stesso monitor della barra
+            );
 
         for (let w of windows) {
             if (w.get_maximized() === Meta.MaximizeFlags.BOTH)
                 return true;
             const rect = w.get_frame_rect();
-            if (rect.y <= this.panel_height)
+            if (rect.y <= PROXIMITY_THRESHOLD)
                 return true;
         }
         return false;
@@ -58,16 +68,19 @@ class Extension {
     _update_panel_visibility() {
         // aggiorna lo stato reale del mouse
         let [x, y, mods] = global.get_pointer();
+
         this._mouseInside = (y <= 5 && x > 0) || this._inPanel;
 
         // Caso 0: lock screen → barra sempre nascosta
         if (Main.screenShield.locked) {
+            log('Nascondo: lock screen');
             this._hide_panel();
             return;
         }
 
         // Caso 1: Overview → barra sempre visibile
         if (Overview.visible) {
+            log('Mostro: overview');
             this._show_panel();
             return;
         }
@@ -76,24 +89,28 @@ class Extension {
         for (let name in Panel.statusArea) {
             const item = Panel.statusArea[name];
             if (item.menu && item.menu.isOpen) {
+                log('Mostro: Menu aperto');
                 this._show_panel();
                 return;
             }
         }
 
         // Caso 3: Mouse dentro hot area o barra → barra visibile
-        if (this._mouseInside) {
+        if (this._mouseInside && (global.display.get_grab_op() !== Meta.GrabOp.MOVING)) {
+            log('Mostro: mouse dentro hot area o barra + no drag');
             this._show_panel();
             return;
         }
 
         // Caso 4: finestre che bloccano → barra nascosta
         if (this._any_window_blocks_panel()) {
+            log('Nascondo: finestra massimizzata o vicino alla barra');
             this._hide_panel();
             return;
         }
 
         // Caso 5: default
+        log('Mostro: default');
         this._show_panel();
     }
 
@@ -191,7 +208,6 @@ class Extension {
 
     enable() {
         this._createHotArea();
-
         // Polling continuo per gestione lock screen, multi-finestra e workspace changes
         this._updateLoop = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
             this._update_panel_visibility();
