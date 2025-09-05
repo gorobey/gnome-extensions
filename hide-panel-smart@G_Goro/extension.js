@@ -67,7 +67,7 @@ class Extension {
 
     _update_panel_visibility() {
         // aggiorna lo stato reale del mouse
-        let [x, y, mods] = global.get_pointer();
+        let [x, y] = global.get_pointer();
 
         this._mouseInside = (y <= 5 && x > 0) || this._inPanel;
 
