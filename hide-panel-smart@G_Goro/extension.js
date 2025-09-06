@@ -17,14 +17,17 @@ const St = imports.gi.St;
 const GLib = imports.gi.GLib;
 const Clutter = imports.gi.Clutter;
 
+const panel_height = Panel.get_height();
+const proximity = panel_height + 50;
+
 class Extension {
     constructor() {
-        this.panel_height = Panel.get_height();
+
         this._signals = [];
         this._hotArea = null;
 
-        this._enterDelay = 75;
-        this._leaveDelay = 500;
+        this._enterDelay = 0;
+        this._leaveDelay = 750;
 
         this._mouseInside = false;
         this._inPanel = false;
@@ -35,31 +38,35 @@ class Extension {
     }
 
     _show_panel() {
+        if (this._panelAnimating) return;
+        this._panelAnimating = true;
+        Panel.show();
         Panel.ease({
-            opacity: 255,
-            height: this.panel_height,
-            duration: 75,
+            y: 0,
+            duration: 200,
             mode: Clutter.AnimationMode.EASE_OUT_EXPO,
             onComplete: () => {
-                Panel.show();
+                this._panelAnimating = false;
             }
         });
     }
 
     _hide_panel() {
+        if (this._panelAnimating) return;
+        this._panelAnimating = true;
         Panel.ease({
-            opacity: 0,
-            height: 1,
-            duration: 75,
+            y: - panel_height,
+            duration: 200,
             mode: Clutter.AnimationMode.EASE_OUT_EXPO,
             onComplete: () => {
                 Panel.hide();
+                this._panelAnimating = false;
             }
         });
     }
 
     _any_window_blocks_panel() {
-        const PROXIMITY_THRESHOLD = this.panel_height + 50;
+
         // Ottieni l'indice del monitor della barra (qui si assume monitor principale)
         const panelMonitor = Main.layoutManager.primaryIndex;
 
@@ -76,7 +83,7 @@ class Extension {
             if (w.get_maximized() === Meta.MaximizeFlags.BOTH)
                 return true;
             const rect = w.get_frame_rect();
-            if (rect.y <= PROXIMITY_THRESHOLD)
+            if (rect.y <= proximity)
                 return true;
         }
         return false;
@@ -143,7 +150,7 @@ class Extension {
             x: 0,
             y: 0,
             width: global.stage.width,
-            height: 5,
+            height: 2,
             opacity: 0
         });
 
@@ -226,7 +233,7 @@ class Extension {
     enable() {
         this._createHotArea();
         // Polling continuo per gestione lock screen, multi-finestra e workspace changes
-        this._updateLoop = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
+        this._updateLoop = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
             this._update_panel_visibility();
             return GLib.SOURCE_CONTINUE;
         });
