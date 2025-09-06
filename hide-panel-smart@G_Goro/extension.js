@@ -17,9 +17,6 @@ const St = imports.gi.St;
 const GLib = imports.gi.GLib;
 const Clutter = imports.gi.Clutter;
 
-const panel_height = Panel.get_height();
-const proximity = panel_height + 50;
-
 class Extension {
     constructor() {
 
@@ -37,35 +34,35 @@ class Extension {
         this._updateLoop = null;
     }
 
-_show_panel() {
-    if (this._panelAnimating) return;
-    this._panelAnimating = true;
-    Panel.show();
-    Panel.ease({
-        translation_y: 0,
-        height: panel_height,
-        duration: 150,
-        mode: Clutter.AnimationMode.EASE_OUT_EXPO,
-        onComplete: () => {
-            this._panelAnimating = false;
-        }
-    });
-}
+    _show_panel() {
+        if (this._panelAnimating) return;
+        this._panelAnimating = true;
+        Panel.show();
+        Panel.ease({
+            translation_y: 0,
+            height: this.panel_height,
+            duration: 150,
+            mode: Clutter.AnimationMode.EASE_OUT_EXPO,
+            onComplete: () => {
+                this._panelAnimating = false;
+            }
+        });
+    }
 
-_hide_panel() {
-    if (this._panelAnimating) return;
-    this._panelAnimating = true;
-    Panel.ease({
-        translation_y: -panel_height,
-        height: 1,
-        duration: 300,
-        mode: Clutter.AnimationMode.EASE_OUT_EXPO,
-        onComplete: () => {
-            Panel.hide();
-            this._panelAnimating = false;
-        }
-    });
-}
+    _hide_panel() {
+        if (this._panelAnimating) return;
+        this._panelAnimating = true;
+        Panel.ease({
+            translation_y: -this.panel_height,
+            height: 1,
+            duration: 300,
+            mode: Clutter.AnimationMode.EASE_OUT_EXPO,
+            onComplete: () => {
+                Panel.hide();
+                this._panelAnimating = false;
+            }
+        });
+    }
 
     _any_window_blocks_panel() {
 
@@ -85,7 +82,7 @@ _hide_panel() {
             if (w.get_maximized() === Meta.MaximizeFlags.BOTH)
                 return true;
             const rect = w.get_frame_rect();
-            if (rect.y <= proximity)
+            if (rect.y <= this.proximity)
                 return true;
         }
         return false;
@@ -234,6 +231,10 @@ _hide_panel() {
 
     enable() {
         this._createHotArea();
+
+        this.panel_height = Panel.get_height();
+        this.proximity = this.panel_height + 50;
+
         // Polling continuo per gestione lock screen, multi-finestra e workspace changes
         this._updateLoop = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
             this._update_panel_visibility();
