@@ -235,7 +235,7 @@ _hide_panel() {
     enable() {
         this._createHotArea();
         // Polling continuo per gestione lock screen, multi-finestra e workspace changes
-        this._updateLoop = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 50, () => {
+        this._updateLoop = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
             this._update_panel_visibility();
             return GLib.SOURCE_CONTINUE;
         });
