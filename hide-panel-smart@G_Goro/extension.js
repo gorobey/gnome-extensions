@@ -27,7 +27,7 @@ class Extension {
         this._hotArea = null;
 
         this._enterDelay = 0;
-        this._leaveDelay = 750;
+        this._leaveDelay = 1500;
 
         this._mouseInside = false;
         this._inPanel = false;
@@ -37,33 +37,35 @@ class Extension {
         this._updateLoop = null;
     }
 
-    _show_panel() {
-        if (this._panelAnimating) return;
-        this._panelAnimating = true;
-        Panel.show();
-        Panel.ease({
-            y: 0,
-            duration: 200,
-            mode: Clutter.AnimationMode.EASE_OUT_EXPO,
-            onComplete: () => {
-                this._panelAnimating = false;
-            }
-        });
-    }
+_show_panel() {
+    if (this._panelAnimating) return;
+    this._panelAnimating = true;
+    Panel.show();
+    Panel.ease({
+        translation_y: 0,
+        height: panel_height,
+        duration: 150,
+        mode: Clutter.AnimationMode.EASE_OUT_EXPO,
+        onComplete: () => {
+            this._panelAnimating = false;
+        }
+    });
+}
 
-    _hide_panel() {
-        if (this._panelAnimating) return;
-        this._panelAnimating = true;
-        Panel.ease({
-            y: - panel_height,
-            duration: 200,
-            mode: Clutter.AnimationMode.EASE_OUT_EXPO,
-            onComplete: () => {
-                Panel.hide();
-                this._panelAnimating = false;
-            }
-        });
-    }
+_hide_panel() {
+    if (this._panelAnimating) return;
+    this._panelAnimating = true;
+    Panel.ease({
+        translation_y: -panel_height,
+        height: 1,
+        duration: 300,
+        mode: Clutter.AnimationMode.EASE_OUT_EXPO,
+        onComplete: () => {
+            Panel.hide();
+            this._panelAnimating = false;
+        }
+    });
+}
 
     _any_window_blocks_panel() {
 
