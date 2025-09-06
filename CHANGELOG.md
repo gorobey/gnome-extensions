@@ -1,4 +1,6 @@
 # Changelog
+## v6
+- FIX: intercept real height of panel
 
 ## v5
 - Fix indentation

@@ -1,11 +1,11 @@
 /*
     Hide Panel with smart rules
     - Bar hidden if a window is maximized
-    - Bar go hidden when a windows is dragged close to the top bar
+    - Bar go hidden when a windows are dragged close to the top bar
     - Bar always visible in Overview
     - Bar visible if the mouse stays at the top for a minimum time
     - Bar remains visible when the mouse is over the bar or menus
-    - Bar disappears after 300ms when the mouse leaves the sensitive area and the bar
+    - Bar disappears when the mouse leaves the sensitive area and the bar
     - Bar remains visible if a menu is open
 */
 
@@ -232,8 +232,12 @@ class Extension {
     enable() {
         this._createHotArea();
 
-        this.panel_height = Panel.get_height();
-        this.proximity = this.panel_height + 50;
+        // this.panel_height = 80; // Valore predefinito
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
+            this.panel_height = Panel.height || Panel.get_height();
+            this.proximity = this.panel_height + 50; // distanza in pixel dalla barra per farla riapparire
+            return GLib.SOURCE_REMOVE;
+        });
 
         // Polling continuo per gestione lock screen, multi-finestra e workspace changes
         this._updateLoop = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
