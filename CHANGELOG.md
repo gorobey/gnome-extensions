@@ -4,7 +4,7 @@
 
 ## v5
 - Fix indentation
-- Remove functions from gloab scope
+- Remove functions from global scope
 
 ## v3.1 aka v4 (stable release)
 - Animation improvements
