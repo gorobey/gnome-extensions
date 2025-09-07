@@ -23,7 +23,7 @@ class Extension {
         this._signals = [];
         this._hotArea = null;
 
-        this._enterDelay = 0;
+        this._enterDelay = 1000;
         this._leaveDelay = 1500;
 
         this._mouseInside = false;
@@ -41,8 +41,8 @@ class Extension {
         Panel.ease({
             translation_y: 0,
             height: this.panel_height,
-            duration: 150,
-            mode: Clutter.AnimationMode.EASE_OUT_EXPO,
+            duration: 200,
+            mode: Clutter.AnimationMode.LINEAR,
             onComplete: () => {
                 this._panelAnimating = false;
             }
@@ -55,8 +55,8 @@ class Extension {
         Panel.ease({
             translation_y: -this.panel_height,
             height: 1,
-            duration: 300,
-            mode: Clutter.AnimationMode.EASE_OUT_EXPO,
+            duration: 200,
+            mode: Clutter.AnimationMode.LINEAR,
             onComplete: () => {
                 Panel.hide();
                 this._panelAnimating = false;
@@ -92,7 +92,7 @@ class Extension {
         // aggiorna lo stato reale del mouse
         let [x, y] = global.get_pointer();
 
-        this._mouseInside = (y <= 5 && x > 0) || this._inPanel;
+        this._mouseInside = (y <= 2 && x > 0) || this._inPanel;
 
         // Caso 0: lock screen → barra sempre nascosta
         if (Main.screenShield.locked) {
@@ -232,10 +232,10 @@ class Extension {
     enable() {
         this._createHotArea();
 
-        // this.panel_height = 80; // Valore predefinito
-        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
+        this._initTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 300, () => {
             this.panel_height = Panel.height || Panel.get_height();
             this.proximity = this.panel_height + 50; // distanza in pixel dalla barra per farla riapparire
+            this._initTimeoutId = null; // Reset dell'ID dopo l'esecuzione
             return GLib.SOURCE_REMOVE;
         });
 
@@ -282,6 +282,11 @@ class Extension {
         if (this._updateLoop) {
             GLib.source_remove(this._updateLoop);
             this._updateLoop = null;
+        }
+
+        if (this._initTimeoutId) {
+            GLib.source_remove(this._initTimeoutId);
+            this._initTimeoutId = null;
         }
 
         this._show_panel();
