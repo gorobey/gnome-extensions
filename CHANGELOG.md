@@ -1,4 +1,11 @@
 # Changelog
+
+## v8
+- FIX: compatibility with multiple monitors
+- 
+## v7
+- FIX: Timeout removed on disable
+
 ## v6
 - FIX: intercept real height of panel
 

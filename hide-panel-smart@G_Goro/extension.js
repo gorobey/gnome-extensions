@@ -92,7 +92,14 @@ class Extension {
         // aggiorna lo stato reale del mouse
         let [x, y] = global.get_pointer();
 
-        this._mouseInside = (y <= 2 && x > 0) || this._inPanel;
+        // Ottieni info monitor principale
+        const monitor = Main.layoutManager.primaryMonitor;
+        this._mouseInside = (
+            y >= monitor.y &&
+            y <= monitor.y + 2 &&
+            x > monitor.x &&
+            x <= monitor.x + this.panel_width
+        ) || this._inPanel;
 
         // Caso 0: lock screen → barra sempre nascosta
         if (Main.screenShield.locked) {
@@ -234,6 +241,7 @@ class Extension {
 
         this._initTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 300, () => {
             this.panel_height = Panel.height || Panel.get_height();
+            this.panel_width = Panel.width || Panel.get_width();
             this.proximity = this.panel_height + 50; // distanza in pixel dalla barra per farla riapparire
             this._initTimeoutId = null; // Reset dell'ID dopo l'esecuzione
             return GLib.SOURCE_REMOVE;
